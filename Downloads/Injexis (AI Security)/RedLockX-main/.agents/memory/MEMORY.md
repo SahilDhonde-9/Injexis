@@ -1,0 +1,1 @@
+- [RedLockX Vercel routing fix](redlockx-vercel-routing.md) — blank dashboard on SPA navigation fixed with window.location.href + wouter component prop pattern.

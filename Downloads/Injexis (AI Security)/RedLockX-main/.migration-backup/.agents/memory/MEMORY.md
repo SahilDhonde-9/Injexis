@@ -1,0 +1,1 @@
+- [Wouter routing with Vite base](wouter-vite-base.md) — avoid deep nested prefixes like /app/* with wouter; use short flat routes matching original depth.

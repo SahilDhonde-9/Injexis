@@ -1,0 +1,478 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Prompt Injection Firewall API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: firewall
+    description: Prompt injection analysis
+  - name: logs
+    description: Analysis log history
+  - name: stats
+    description: Analytics and statistics
+  - name: settings
+    description: LLM provider settings
+  - name: chat
+    description: Firewall-gated LLM chat
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /analyze:
+    post:
+      operationId: analyzePrompt
+      tags: [firewall]
+      summary: Analyze a prompt for injection attacks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromptInput"
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /logs:
+    get:
+      operationId: getLogs
+      tags: [logs]
+      summary: Get analysis log history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: verdict
+          in: query
+          schema:
+            type: ["string", "null"]
+            enum: [BLOCK, ALLOW, null]
+      responses:
+        "200":
+          description: List of analysis logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogsResponse"
+
+  /logs/{id}:
+    get:
+      operationId: getLogById
+      tags: [logs]
+      summary: Get a specific analysis log
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Analysis log entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogEntry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get analytics statistics
+      responses:
+        "200":
+          description: Aggregated stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
+  /stats/attack-types:
+    get:
+      operationId: getAttackTypeBreakdown
+      tags: [stats]
+      summary: Get attack type distribution
+      responses:
+        "200":
+          description: Attack type counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttackTypeStat"
+
+  /stats/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [stats]
+      summary: Get recent analysis activity (last 7 days by day)
+      responses:
+        "200":
+          description: Daily activity breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyActivity"
+
+  /settings:
+    get:
+      operationId: getLlmSettings
+      tags: [settings]
+      summary: Get current LLM provider settings
+      responses:
+        "200":
+          description: Current LLM settings (api_key masked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LlmSettingsResponse"
+        "404":
+          description: No settings configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: saveLlmSettings
+      tags: [settings]
+      summary: Save LLM provider settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LlmSettingsInput"
+      responses:
+        "200":
+          description: Saved settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LlmSettingsResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /chat:
+    post:
+      operationId: sendChatMessage
+      tags: [chat]
+      summary: Send a firewall-gated chat message to the configured LLM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: Chat response (blocked or LLM reply)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: LLM not configured or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    PromptInput:
+      type: object
+      required:
+        - prompt
+      properties:
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 10000
+
+    AnalysisResult:
+      type: object
+      required:
+        - id
+        - verdict
+        - riskScore
+        - isSafe
+        - attackType
+        - hybridProbability
+        - mlStatus
+        - mlConfidence
+        - explanation
+        - createdAt
+      properties:
+        id:
+          type: integer
+        verdict:
+          type: string
+          enum: [BLOCK, ALLOW]
+        riskScore:
+          type: number
+        isSafe:
+          type: boolean
+        attackType:
+          type: ["string", "null"]
+        hybridProbability:
+          type: number
+        mlStatus:
+          type: string
+        mlConfidence:
+          type: number
+        explanation:
+          type: string
+        createdAt:
+          type: string
+
+    LogEntry:
+      type: object
+      required:
+        - id
+        - prompt
+        - verdict
+        - riskScore
+        - isSafe
+        - attackType
+        - hybridProbability
+        - mlStatus
+        - mlConfidence
+        - createdAt
+      properties:
+        id:
+          type: integer
+        prompt:
+          type: string
+        verdict:
+          type: string
+          enum: [BLOCK, ALLOW]
+        riskScore:
+          type: number
+        isSafe:
+          type: boolean
+        attackType:
+          type: ["string", "null"]
+        hybridProbability:
+          type: number
+        mlStatus:
+          type: string
+        mlConfidence:
+          type: number
+        createdAt:
+          type: string
+
+    LogsResponse:
+      type: object
+      required:
+        - logs
+        - total
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/LogEntry"
+        total:
+          type: integer
+
+    Stats:
+      type: object
+      required:
+        - totalAnalyzed
+        - totalBlocked
+        - totalAllowed
+        - blockRate
+        - avgRiskScore
+        - todayAnalyzed
+        - todayBlocked
+      properties:
+        totalAnalyzed:
+          type: integer
+        totalBlocked:
+          type: integer
+        totalAllowed:
+          type: integer
+        blockRate:
+          type: number
+        avgRiskScore:
+          type: number
+        todayAnalyzed:
+          type: integer
+        todayBlocked:
+          type: integer
+
+    AttackTypeStat:
+      type: object
+      required:
+        - attackType
+        - count
+      properties:
+        attackType:
+          type: string
+        count:
+          type: integer
+
+    DailyActivity:
+      type: object
+      required:
+        - date
+        - analyzed
+        - blocked
+        - allowed
+      properties:
+        date:
+          type: string
+        analyzed:
+          type: integer
+        blocked:
+          type: integer
+        allowed:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+
+    LlmSettingsInput:
+      type: object
+      required:
+        - provider
+        - apiKey
+        - model
+      properties:
+        provider:
+          type: string
+          enum: [openai, groq, gemini, custom]
+        apiKey:
+          type: string
+          minLength: 1
+        model:
+          type: string
+          minLength: 1
+        baseUrl:
+          type: ["string", "null"]
+
+    LlmSettingsResponse:
+      type: object
+      required:
+        - provider
+        - model
+        - hasApiKey
+      properties:
+        provider:
+          type: string
+        model:
+          type: string
+        hasApiKey:
+          type: boolean
+        baseUrl:
+          type: ["string", "null"]
+
+    ChatHistoryMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+
+    ChatRequest:
+      type: object
+      required:
+        - message
+        - history
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        sessionId:
+          type: ["string", "null"]
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatHistoryMessage"
+
+    ChatResponse:
+      type: object
+      required:
+        - blocked
+        - sessionId
+        - analysis
+      properties:
+        blocked:
+          type: boolean
+        sessionId:
+          type: string
+        reply:
+          type: ["string", "null"]
+        analysis:
+          $ref: "#/components/schemas/AnalysisResult"

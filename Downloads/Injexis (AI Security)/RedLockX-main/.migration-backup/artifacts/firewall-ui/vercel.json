@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "buildCommand": "cd ../.. && pnpm --filter @workspace/firewall-ui run build",
+  "outputDirectory": "artifacts/firewall-ui/dist/public",
+  "installCommand": "npm install -g pnpm && pnpm install",
+  "env": {
+    "BASE_PATH": "/",
+    "PORT": "3000"
+  },
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}
